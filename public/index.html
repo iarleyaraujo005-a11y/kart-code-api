@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Giroscópio no Celular</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2rem 1rem;
+    }
+
+    .hud-gyro {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .hud-gyro h2 {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 1rem;
+    }
+
+    .gyro-values {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+
+    .axis {
+      background: #0f172a;
+      padding: 0.75rem;
+      border-radius: 8px;
+    }
+
+    .axis-label {
+      display: block;
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-bottom: 0.25rem;
+    }
+
+    .axis-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      font-family: monospace;
+      color: #38bdf8;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .btn-perm {
+      background-color: #f59e0b;
+      color: #78350f;
+      padding: 1.25rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    .row-controls {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 1.5rem 1rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.25rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn-accel {
+      background-color: #22c55e;
+      color: #052e16;
+    }
+
+    .btn-brake {
+      background-color: #ef4444;
+      color: #450a0a;
+    }
+
+    #status-msg {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Exibição do Giroscópio -->
+  <div class="hud-gyro">
+    <h2>Giroscópio / Orientação</h2>
+    <div class="gyro-values">
+      <div class="axis">
+        <span class="axis-label">Alfa (Z)</span>
+        <span class="axis-value" id="gyro-alpha">0.0°</span>
+      </div>
+      <div class="axis">
+        <span class="axis-label">Beta (X)</span>
+        <span class="axis-value" id="gyro-beta">0.0°</span>
+      </div>
+      <div class="axis">
+        <span class="axis-label">Gama (Y)</span>
+        <span class="axis-value" id="gyro-gamma">0.0°</span>
+      </div>
+    </div>
+    <div id="status-msg">Aguardando permissão do sensor...</div>
+  </div>
+
+  <!-- Botões de Controle e Permissão -->
+  <div class="controls">
+    <button type="button" id="btn-permissao" class="btn-perm">ATIVAR GIROSCÓPIO</button>
+    <div class="row-controls">
+      <button type="button" id="btn-brake" class="btn btn-brake">Freiar</button>
+      <button type="button" id="btn-accel" class="btn btn-accel">Acelerar</button>
+    </div>
+  </div>
+
+  <script>
+    
+    let dadosGiroscopio = { alpha: "0.0", beta: "0.0", gamma: "0.0" };
+    let acaoAtual = "parado";
+    let intervalId = null;
+    const statusMsg = document.getElementById('status-msg');
+
+    async function solicitarPermissaoSensor() {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const response = await DeviceOrientationEvent.requestPermission();
+          if (response === 'granted') {
+            ativarEscuta();
+          } else {
+            statusMsg.innerText = "Permissão negada pelo usuário.";
+          }
+        } catch (error) {
+          statusMsg.innerText = "Erro ao solicitar permissão: " + error;
+        }
+      } 
+      else if (window.DeviceOrientationEvent) {
+        ativarEscuta();
+      } else {
+        statusMsg.innerText = "Seu navegador não suporta DeviceOrientation.";
+      }
+    }
+
+    function ativarEscuta() {
+      window.addEventListener('deviceorientation', (event) => {
+
+        const beta = event.beta ? event.beta.toFixed(1) : "0.0";
+
+
+        dadosGiroscopio = { beta, acaoAtual };
+
+       // document.getElementById('gyro-alpha').innerText = alpha + '°';
+        document.getElementById('gyro-beta').innerText = beta + '°';
+       // document.getElementById('gyro-gamma').innerText = gamma + '°';
+
+      }, true);
+
+      const btnPerm = document.getElementById('btn-permissao');
+      btnPerm.innerText = "GIROSCÓPIO ATIVO ✅";
+      btnPerm.style.backgroundColor = "#22c55e";
+      btnPerm.style.color = "#052e16";
+
+      if (!intervalId) {
+        intervalId = setInterval(enviarPayload, 50);
+        statusMsg.innerText = "Sensor ativo e transmitindo a cada 0.5s!";
+      }
+    }
+
+    document.getElementById('btn-permissao').addEventListener('click', solicitarPermissaoSensor);
+
+    async function enviarPayload() {
+      const payload = {
+        acao: acaoAtual,
+        giroscopio: dadosGiroscopio,
+        timestamp: Date.now()
+      };
+
+      try {
+        const resposta = await fetch("/teste", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const resultado = await resposta.text();
+        console.log('Resposta do servidor:', resultado);
+      } catch (erro) {
+        console.error('Erro no fetch:', erro);
+      }
+    }
+
+    document.getElementById('btn-accel').addEventListener('click', () => {
+      acaoAtual = 'acelerar';
+    });
+
+    document.getElementById('btn-brake').addEventListener('click', () => {
+      acaoAtual = 'freiar';
+    });
+  </script>
+</body>
+</html>
